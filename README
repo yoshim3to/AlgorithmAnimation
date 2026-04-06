@@ -1,0 +1,4 @@
+Uses Python 3.12.5
+
+Install requirements using:
+    pip install -r requirements.txt
