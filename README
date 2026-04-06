@@ -2,3 +2,8 @@ Uses Python 3.12.5
 
 Install requirements using:
     pip install -r requirements.txt
+
+Run using:
+    manim -pql animate.py [algorithm name]
+        - The -p flag will open a preview of the generated video in your default video player when complete
+        - The -q flag sets the quality, in this case 'l' for low
