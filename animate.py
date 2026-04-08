@@ -2,6 +2,8 @@ from manim import *
 from manim_dsa import *
 import random
 import sys
+sys.path.append('..')
+from GaleShapelyAlgorithm import GaleShapley
 
 def table_int_to_str(table: list[list[int]]):
     out = [[str(item) for item in row] for row in table]
@@ -53,13 +55,7 @@ class Hungarian(Scene):
 
 class GaleShapley(Scene):
         def construct(self):
-            def remove_edge(graph : MGraph, node1 : str, node2 : str):
-                edge_name = (node1, node2)
-                del graph.edges[edge_name]
-                graph.remove(edge_name)
-            graph = {
-                x: ['A'] for x in "ABCDEFGHIJ"  # a vertex wont be displayed unless it has an edge
-            }
+            graph = {x: [] for x in "ABCDEFGHIJ"}
             nodes_and_positions = {
                         'A' : LEFT*2+UP*2,
                         'B' : LEFT*2+UP,
@@ -72,13 +68,16 @@ class GaleShapley(Scene):
                         'I' : RIGHT*2+DOWN,
                         'J' : RIGHT*2+DOWN*2,
             }
-            mGraph = MGraph(graph, nodes_position=nodes_and_positions, style=MGraphStyle.PURPLE)
-            for x in "ABCDEFGHIJ":  # remove dummy edges
-                remove_edge(mGraph, x, 'A')
-            self.play(Create(mGraph))    
-            # while(a vertex with no edges exists):
-            #     graph = GaleShapley(graph)
-            #     self.play(Indicate(the edge that was added), runtime=1)
+            mGraph = MGraph(graph, nodes_and_positions, style=MGraphStyle.PURPLE)
+            self.play(Create(mGraph))
+            men = "ABCDE"
+            while any(not graph[node] for node in men):
+                graph, new_edge = GaleShapley(graph)
+                if new_edge:
+                    new_mGraph = MGraph(graph, nodes_and_positions, style=MGraphStyle.PURPLE)
+                    self.play(Transform(mGraph, new_mGraph), run_time=1)
+                    self.play(Indicate(new_mGraph.edges[new_edge]), run_time=1)
+                self.wait(1)
             self.play(Wait(3))
 
 class Dinic(Scene):
