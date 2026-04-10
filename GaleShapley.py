@@ -1,7 +1,50 @@
 import sys
 import random
 
-#Preferences this is just based off what was given from the animation file
+def gale_shapley_generator(men_pref, women_pref):
+    free_men = list(men_pref.keys())
+    engaged = {}  # woman -> man
+    proposals = {man: 0 for man in men_pref}
+
+    while free_men:
+        man = free_men.pop(0)
+        if proposals[man] >= len(men_pref[man]):
+            continue
+            
+        woman = men_pref[man][proposals[man]]
+        proposals[man] += 1
+        
+        accepted = False
+        rejected_man = None
+
+        if woman not in engaged:
+            engaged[woman] = man
+            accepted = True
+        else:
+            current_man = engaged[woman]
+            if women_pref[woman].index(man) < women_pref[woman].index(current_man):
+                engaged[woman] = man
+                free_men.append(current_man)
+                accepted = True
+                rejected_man = current_man
+            else:
+                free_men.append(man)
+                accepted = False
+                rejected_man = man
+
+        yield {
+            "proposer": man,
+            "proposee": woman,
+            "accepted": accepted,
+            "rejected_man": rejected_man,
+            "engaged": dict(engaged),
+            "done": False
+        }
+
+    yield {
+        "engaged": dict(engaged),
+        "done": True
+    }
 
 class GaleShapley:
     def __init__(self, women_pref, men_pref, free_men, engaged, proposals):
@@ -12,10 +55,10 @@ class GaleShapley:
         self.proposals = proposals
     def step(self, graph):
         if not self.free_men:
-            return graph, None
+            return graph, None, None
         man = self.free_men.pop(0)
         if self.proposals[man] >= len(self.men_pref[man]):
-            return graph, None ##no more women to propose to
+            return graph, None, None ##no more women to propose to
         
         woman = self.men_pref[man][self.proposals[man]]
         self.proposals[man] += 1

@@ -117,7 +117,6 @@ class Hungarian(Scene):
 
 class GaleShapley(Scene):
     def construct(self):
-        from GaleShapely import gale_shapley_generator
         def remove_edge(graph : MGraph, node1 : str, node2 : str):
             edge_name = (node1, node2)
             if edge_name in graph.edges:
