@@ -364,23 +364,58 @@ class Dinic(Scene):
         for u, edges in graph.items():
             initial_graph[u] = [(v, 0) for v, cap in edges]
 
-        mGraph = MGraph(initial_graph, nodes_position=nodes_and_positions, style=MGraphStyle.PURPLE)
-        self.play(Create(mGraph), run_time=0.5)
-        self.play(Wait(2))
+        title = Text("Dinic's Algorithm", font_size=36, color=BLUE).to_edge(UP)
+        flow_text = Text("Current Flow: 0", font_size=28, color=GREEN).to_corner(UL)
+        
+        self.play(Write(title), Write(flow_text))
+
+        mGraph = MGraph(initial_graph, nodes_position=nodes_and_positions, style=MGraphStyle.PURPLE).scale(0.9).shift(DOWN * 0.5)
+        self.play(Create(mGraph), run_time=1)
+        self.play(Wait(1))
+        
         generator = dinic_generator(graph, 'IN', 'OUT')
+        current_flow = 0
         
         for state in generator:
             if state["done"]:
+                if "max_flow" in state:
+                    new_flow_text = Text(f"Max Flow: {state['max_flow']}", font_size=28, color=GREEN).to_corner(UL)
+                    self.play(Transform(flow_text, new_flow_text))
                 break
+                
+            aug_path = state.get("augmenting_path")
+            if aug_path:
+                animations = []
+                for i in range(len(aug_path)-1):
+                    u, v = aug_path[i], aug_path[i+1]
+                    if (u, v) in mGraph.edges:
+                        animations.append(Indicate(mGraph.edges[(u, v)], color=YELLOW, scale_factor=1.2))
+                    elif (v, u) in mGraph.edges:
+                        animations.append(Indicate(mGraph.edges[(v, u)], color=YELLOW, scale_factor=1.2))
+                
+                if animations:
+                    path_text = Text(f"Augmenting Path: {' -> '.join(aug_path)}", font_size=24, color=YELLOW).to_edge(DOWN)
+                    self.play(Write(path_text), run_time=0.5)
+                    self.play(LaggedStart(*animations, lag_ratio=0.5), run_time=2)
+                    self.play(Wait(0.5))
+                    self.play(FadeOut(path_text), run_time=0.5)
                 
             state_graph = state["graph"]
             new_graph = {}
+            new_flow = 0
             for u, edges in state_graph.items():
                 new_graph[u] = [(v, flow) for v, cap, flow in edges]
+                if u == 'IN':
+                    new_flow = sum(flow for v, cap, flow in edges)
+            
+            if new_flow > current_flow:
+                current_flow = new_flow
+                new_flow_text = Text(f"Current Flow: {current_flow}", font_size=28, color=GREEN).to_corner(UL)
+                self.play(Transform(flow_text, new_flow_text), run_time=0.5)
                 
-            new_mGraph = MGraph(new_graph, nodes_position=nodes_and_positions, style=MGraphStyle.PURPLE)
+            new_mGraph = MGraph(new_graph, nodes_position=nodes_and_positions, style=MGraphStyle.PURPLE).scale(0.9).shift(DOWN * 0.5)
             
             self.play(Transform(mGraph, new_mGraph), run_time=0.5)
-            self.play(Wait(1))
+            self.play(Wait(0.5))
 
         self.play(Wait(3))
