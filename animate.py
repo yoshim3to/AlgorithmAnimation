@@ -43,9 +43,9 @@ class Hungarian(Scene):
         # UI Elements
         info_text = Text("Hungarian Algorithm", font_size=32).to_edge(UP)
         
-        # Only draw the table and the info text initially
         self.play(Create(table), Write(info_text))
         lines = VGroup()
+        current_highlight = VGroup() # Tracker for the yellow minimum box
 
         # Step through the yielded actions from hungarian.py
         for step_data in hungarian_visual_steps(preTable):
@@ -64,13 +64,56 @@ class Hungarian(Scene):
             if step_type == "initial":
                 continue
 
+            elif step_type == "row_min":
+                r, c, min_val = step_data[2], step_data[3], step_data[4]
+                worker = row_labels[r]
+                
+                cell = table.get_cell((r+2, c+2))
+                current_highlight = Circle(color=YELLOW, stroke_width=4).match_height(cell).scale(0.8).move_to(cell)
+                
+                self.play(
+                    Transform(info_text, Text(f"Row {worker} Minimum: {min_val}", font_size=32).to_edge(UP)),
+                    Create(current_highlight),
+                    run_time=1.5 
+                )
+                self.play(Wait(1)) 
+
             elif step_type == "row_reduce":
-                self.play(Transform(info_text, Text("Subtracting Row Minimums", font_size=32).to_edge(UP)))
-                self.play(Transform(table, new_table), run_time=1.5)
+                r, min_val = step_data[2], step_data[4]
+                worker = row_labels[r]
+                self.play(
+                    Transform(info_text, Text(f"Subtracting {min_val} from Row {worker}", font_size=32).to_edge(UP)),
+                    Transform(table, new_table),
+                    FadeOut(current_highlight),
+                    run_time=1.5 
+                )
+                self.play(Wait(0.5))
+
+            elif step_type == "col_min":
+                r, c, min_val = step_data[2], step_data[3], step_data[4]
+                task = col_labels[c]
+                
+                # Fetch the exact cell and create a perfectly scaled circle
+                cell = table.get_cell((r+2, c+2))
+                current_highlight = Circle(color=YELLOW, stroke_width=4).match_height(cell).scale(0.8).move_to(cell)
+                
+                self.play(
+                    Transform(info_text, Text(f"Column {task} Minimum: {min_val}", font_size=32).to_edge(UP)),
+                    Create(current_highlight),
+                    run_time=1.5
+                )
+                self.play(Wait(1))
 
             elif step_type == "col_reduce":
-                self.play(Transform(info_text, Text("Subtracting Column Minimums", font_size=32).to_edge(UP)))
-                self.play(Transform(table, new_table), run_time=1.5)
+                c, min_val = step_data[3], step_data[4]
+                task = col_labels[c]
+                self.play(
+                    Transform(info_text, Text(f"Subtracting {min_val} from Column {task}", font_size=32).to_edge(UP)),
+                    Transform(table, new_table),
+                    FadeOut(current_highlight),
+                    run_time=1.5
+                )
+                self.play(Wait(0.5))
 
             elif step_type == "cover":
                 covered_rows = step_data[2]
@@ -94,14 +137,14 @@ class Hungarian(Scene):
                     line = Line(cell_top.get_top() + UP*0.2, cell_bot.get_bottom() + DOWN*0.2, color=RED, stroke_width=6)
                     lines.add(line)
 
-                self.play(Create(lines), run_time=1)
-                self.play(Wait(1))
+                self.play(Create(lines), run_time=1.5)
+                self.play(Wait(1.5))
 
             elif step_type == "adjust":
                 min_uncovered = step_data[4]
                 self.play(Transform(info_text, Text(f"Lines < {len(matrix)}. Adjusting matrix by {min_uncovered}", font_size=32).to_edge(UP)))
                 self.play(Transform(table, new_table), run_time=1.5)
-                self.play(Wait(1))
+                self.play(Wait(1.5))
 
             elif step_type == "done":
                 assignment = step_data[4]
@@ -110,7 +153,6 @@ class Hungarian(Scene):
                 self.play(Transform(info_text, Text("Optimal Assignment Found!", font_size=32, color=GREEN).to_edge(UP)))
                 self.play(FadeOut(lines))
 
-                # Scale down to 0.45 to guarantee fit with the text block
                 original_table = Table(
                     table_int_to_str(preTable),
                     row_labels=[Text(label) for label in row_labels],
@@ -154,11 +196,9 @@ class Hungarian(Scene):
                 final_cost_group.add(Text("Assignments", font_size=28, color=BLUE))
 
                 for r, c in enumerate(assignment):
-                    # Grab the actual cell objects
                     cell_orig = original_table.get_cell((r+2, c+2))
                     cell_red = reduced_table.get_cell((r+2, c+2))
                     
-                    # Create circles, match their size to the cell, scale to 80% to fit inside, and move to cell center
                     circle_orig = Circle(color=GREEN, stroke_width=4).match_height(cell_orig).scale(0.8).move_to(cell_orig)
                     circle_red = Circle(color=GREEN, stroke_width=4).match_height(cell_red).scale(0.8).move_to(cell_red)
                     

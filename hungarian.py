@@ -260,19 +260,37 @@ def hungarian_visual_steps(cost_matrix: list[list[int]]):
     # Yield 1: Initial Matrix
     yield ("initial", [row[:] for row in matrix], [], [], 0, 0)
 
-    # Yield 2: Row reduction
+    # Yield 2: Row reduction step-by-step
     for i in range(size):
         min_val = min(matrix[i])
+        min_j = matrix[i].index(min_val)
+        
+        # Yield 2a: Highlight minimum in the current row
+        yield ("row_min", [row[:] for row in matrix], i, min_j, min_val, 0)
+        
         for j in range(size):
             matrix[i][j] -= min_val
-    yield ("row_reduce", [row[:] for row in matrix], [], [], 0, 0)
+            
+        # Yield 2b: Show the matrix after the row is reduced
+        yield ("row_reduce", [row[:] for row in matrix], i, -1, min_val, 0)
 
-    # Yield 3: Column reduction
+    # Yield 3: Column reduction step-by-step
     for j in range(size):
         min_val = min(matrix[i][j] for i in range(size))
+        min_i = 0
+        for i in range(size):
+            if matrix[i][j] == min_val:
+                min_i = i
+                break
+                
+        # Yield 3a: Highlight minimum in the current column
+        yield ("col_min", [row[:] for row in matrix], min_i, j, min_val, 0)
+        
         for i in range(size):
             matrix[i][j] -= min_val
-    yield ("col_reduce", [row[:] for row in matrix], [], [], 0, 0)
+            
+        # Yield 3b: Show the matrix after the column is reduced
+        yield ("col_reduce", [row[:] for row in matrix], -1, j, min_val, 0)
 
     # Loop to draw lines and adjust matrix
     while True:
@@ -296,8 +314,7 @@ def hungarian_visual_steps(cost_matrix: list[list[int]]):
                         if matrix[i][j] < min_uncovered:
                             min_uncovered = matrix[i][j]
 
-        # Adjust the matrix: 
-        # Add to double-crossed, subtract from uncovered. Single-covered stay the same.
+        # Adjust the matrix
         for i in range(size):
             for j in range(size):
                 if i in covered_rows and j in covered_cols:
@@ -307,7 +324,7 @@ def hungarian_visual_steps(cost_matrix: list[list[int]]):
 
         # Yield 5: Adjustment step
         yield ("adjust", [row[:] for row in matrix], covered_rows, covered_cols, min_uncovered, 0)
-
+        
 def hungarian_graph(rows: list[str], cols: list[str], edge_costs: dict[str, list[tuple[str, int]]]) -> tuple[dict[str, str], int]:
     """Solve a bipartite matching problem from a weighted graph."""
     if not rows or not cols:
