@@ -208,6 +208,106 @@ def assignment_graph_from_matrix(
 matrix_to_animate_graph = assignment_graph_from_matrix
 
 
+def min_zero_cover(matrix: list[list[int]]) -> tuple[list[int], list[int], bool, list[int]]:
+    """Helper to find the minimum number of lines to cover all zeros using bipartite matching."""
+    size = len(matrix)
+    match_row = [-1] * size
+    match_col = [-1] * size
+
+    # Find max matching
+    def dfs(r, visited):
+        for c in range(size):
+            if matrix[r][c] == 0 and not visited[c]:
+                visited[c] = True
+                if match_col[c] == -1 or dfs(match_col[c], visited):
+                    match_col[c] = r
+                    match_row[r] = c
+                    return True
+        return False
+
+    for i in range(size):
+        visited = [False] * size
+        dfs(i, visited)
+
+    # Use König's theorem to find the minimum vertex cover
+    Z_rows = set()
+    Z_cols = set()
+
+    unmatched_rows = [i for i in range(size) if match_row[i] == -1]
+    queue = list(unmatched_rows)
+    Z_rows.update(unmatched_rows)
+
+    while queue:
+        r = queue.pop(0)
+        for c in range(size):
+            if matrix[r][c] == 0 and c not in Z_cols:
+                Z_cols.add(c)
+                if match_col[c] != -1 and match_col[c] not in Z_rows:
+                    Z_rows.add(match_col[c])
+                    queue.append(match_col[c])
+
+    covered_rows = [i for i in range(size) if i not in Z_rows]
+    covered_cols = list(Z_cols)
+    is_optimal = (len(covered_rows) + len(covered_cols)) == size
+
+    return covered_rows, covered_cols, is_optimal, match_row
+
+def hungarian_visual_steps(cost_matrix: list[list[int]]):
+    """Yield steps for visualizing the true matrix-based Hungarian algorithm."""
+    size = len(cost_matrix)
+    matrix = [row[:] for row in cost_matrix]
+    
+    # Yield 1: Initial Matrix
+    yield ("initial", [row[:] for row in matrix], [], [], 0, 0)
+
+    # Yield 2: Row reduction
+    for i in range(size):
+        min_val = min(matrix[i])
+        for j in range(size):
+            matrix[i][j] -= min_val
+    yield ("row_reduce", [row[:] for row in matrix], [], [], 0, 0)
+
+    # Yield 3: Column reduction
+    for j in range(size):
+        min_val = min(matrix[i][j] for i in range(size))
+        for i in range(size):
+            matrix[i][j] -= min_val
+    yield ("col_reduce", [row[:] for row in matrix], [], [], 0, 0)
+
+    # Loop to draw lines and adjust matrix
+    while True:
+        covered_rows, covered_cols, is_optimal, match_row = min_zero_cover(matrix)
+        
+        # Yield 4: Draw covering lines
+        yield ("cover", [row[:] for row in matrix], covered_rows, covered_cols, 0, 0)
+
+        if is_optimal:
+            # Optimal assignment found
+            total_cost = sum(cost_matrix[i][match_row[i]] for i in range(size))
+            yield ("done", [row[:] for row in matrix], covered_rows, covered_cols, match_row, total_cost)
+            break
+
+        # Find the smallest uncovered value
+        min_uncovered = float('inf')
+        for i in range(size):
+            if i not in covered_rows:
+                for j in range(size):
+                    if j not in covered_cols:
+                        if matrix[i][j] < min_uncovered:
+                            min_uncovered = matrix[i][j]
+
+        # Adjust the matrix: 
+        # Add to double-crossed, subtract from uncovered. Single-covered stay the same.
+        for i in range(size):
+            for j in range(size):
+                if i in covered_rows and j in covered_cols:
+                    matrix[i][j] += min_uncovered
+                elif i not in covered_rows and j not in covered_cols:
+                    matrix[i][j] -= min_uncovered
+
+        # Yield 5: Adjustment step
+        yield ("adjust", [row[:] for row in matrix], covered_rows, covered_cols, min_uncovered, 0)
+
 def hungarian_graph(rows: list[str], cols: list[str], edge_costs: dict[str, list[tuple[str, int]]]) -> tuple[dict[str, str], int]:
     """Solve a bipartite matching problem from a weighted graph."""
     if not rows or not cols:
