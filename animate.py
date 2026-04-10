@@ -3,7 +3,7 @@ from manim_dsa import *
 import random
 import sys
 import GaleShapley as gs
-import hungarian
+from hungarian import hungarian_visual_steps
 from collections import defaultdict
 
 def table_int_to_str(table: list[list[int]]):
@@ -19,101 +19,166 @@ def int_to_ordinal(num):
 
 class Hungarian(Scene):
     def construct(self):
-        from hungarian import hungarian_step_generator
-        def remove_edge(graph : MGraph, node1 : str, node2 : str):
-            edge_name = (node1, node2)
-            if edge_name in graph.edges:
-                del graph.edges[edge_name]
-                graph.remove(edge_name)
-            edge_name2 = (node2, node1)
-            if edge_name2 in graph.edges:
-                del graph.edges[edge_name2]
-                graph.remove(edge_name2)
-
-        graph = {
-            x: ['A'] for x in "1234ABCD"  # dummy to avoid issues
-        }
-        nodes_and_positions = {
-            '1' : LEFT*2+UP*1.5,
-            '2' : LEFT*2+UP*0.5,
-            '3' : LEFT*2+DOWN*0.5,
-            '4' : LEFT*2+DOWN*1.5,
-            'A' : RIGHT*2+UP*1.5,
-            'B' : RIGHT*2+UP*0.5,
-            'C' : RIGHT*2+DOWN*0.5,
-            'D' : RIGHT*2+DOWN*1.5,
-        }
         preTable = [
-            [18, 12, 9, 17],
-            [12, 13, 10, 14],
-            [15, 11, 14, 11],
-            [16, 10, 12, 15]
-        ]        
+            [10, 19, 8, 15],
+            [10, 18, 7, 17],
+            [13, 16, 9, 14],
+            [12, 19, 8, 18]
+        ]
+        
+        row_labels = ["P1", "P2", "P3", "P4"]
+        col_labels = ["T1", "T2", "T3", "T4"]
+        
         table = Table(
             table_int_to_str(preTable),
-            row_labels=[Text("1"), Text("2"), Text("3"), Text("4")],
-            col_labels=[Text("A"), Text("B"), Text("C"), Text("D")],
+            row_labels=[Text(label) for label in row_labels],
+            col_labels=[Text(label) for label in col_labels],
             include_outer_lines=True,
             arrange_in_grid_config={"cell_alignment": RIGHT}
-        )
+        ).scale(0.8)
         
-        mGraph = MGraph(graph, nodes_position=nodes_and_positions, style=MGraphStyle.PURPLE)
-        for x in "1234ABCD":
-            remove_edge(mGraph, x, 'A')
+        # Center the working matrix during the algorithm steps
+        table.move_to(ORIGIN)
 
-        both = VGroup(table, mGraph)
-        both.scale(0.8)
-        both.arrange(buff=1)
-        self.play(Create(both))
-        self.play(Wait(1))
-
-        generator = hungarian_step_generator(preTable)
+        # UI Elements
+        info_text = Text("Hungarian Algorithm", font_size=32).to_edge(UP)
         
-        for state in generator:
-            if state["done"]:
-                break
-                
-            p = state["p"]
-            size = len(preTable)
-            assignment = [-1] * size
-            for col in range(1, size + 1):
-                assigned_row = p[col]
-                if assigned_row > 0:
-                    assignment[assigned_row - 1] = col - 1
-            
-            new_graph = {}
-            row_labels = ["1", "2", "3", "4"]
-            col_labels = ["A", "B", "C", "D"]
-            for row_index, row_label in enumerate(row_labels):
-                col_index = assignment[row_index]
-                if 0 <= col_index < len(col_labels):
-                    new_graph[row_label] = [col_labels[col_index]]
-            if not new_graph:
-                new_graph = {x: ['A'] for x in "1234ABCD"}
-                
-            new_mGraph = MGraph(new_graph, nodes_position=nodes_and_positions, style=MGraphStyle.PURPLE)
-            if not assignment or all(x == -1 for x in assignment):
-                for x in "1234ABCD":
-                    remove_edge(new_mGraph, x, 'A')
+        # Only draw the table and the info text initially
+        self.play(Create(table), Write(info_text))
+        lines = VGroup()
 
+        # Step through the yielded actions from hungarian.py
+        for step_data in hungarian_visual_steps(preTable):
+            step_type = step_data[0]
+            matrix = step_data[1]
+
+            # Generate the updated table
             new_table = Table(
-                table_int_to_str(preTable),
-                row_labels=[Text("1"), Text("2"), Text("3"), Text("4")],
-                col_labels=[Text("A"), Text("B"), Text("C"), Text("D")],
+                table_int_to_str(matrix),
+                row_labels=[Text(label) for label in row_labels],
+                col_labels=[Text(label) for label in col_labels],
                 include_outer_lines=True,
                 arrange_in_grid_config={"cell_alignment": RIGHT}
-            )
-            
-            new_both = VGroup(new_table, new_mGraph)
-            new_both.scale(0.8)
-            new_both.arrange(buff=1)
-            
-            self.play(Transform(both, new_both), run_time=1)
-            self.play(Wait(1))
+            ).scale(0.8).move_to(table.get_center())
 
-        self.play(Wait(3))
+            if step_type == "initial":
+                continue
 
+            elif step_type == "row_reduce":
+                self.play(Transform(info_text, Text("Subtracting Row Minimums", font_size=32).to_edge(UP)))
+                self.play(Transform(table, new_table), run_time=1.5)
 
+            elif step_type == "col_reduce":
+                self.play(Transform(info_text, Text("Subtracting Column Minimums", font_size=32).to_edge(UP)))
+                self.play(Transform(table, new_table), run_time=1.5)
+
+            elif step_type == "cover":
+                covered_rows = step_data[2]
+                covered_cols = step_data[3]
+
+                self.play(Transform(info_text, Text(f"Drawing Minimum Lines: {len(covered_rows) + len(covered_cols)}", font_size=32).to_edge(UP)))
+                self.play(FadeOut(lines))
+                lines = VGroup()
+
+                # Add horizontal lines for covered rows
+                for r in covered_rows:
+                    cell_left = table.get_cell((r+2, 2))
+                    cell_right = table.get_cell((r+2, len(col_labels)+1))
+                    line = Line(cell_left.get_left() + LEFT*0.2, cell_right.get_right() + RIGHT*0.2, color=BLUE, stroke_width=6)
+                    lines.add(line)
+
+                # Add vertical lines for covered columns
+                for c in covered_cols:
+                    cell_top = table.get_cell((2, c+2))
+                    cell_bot = table.get_cell((len(row_labels)+1, c+2))
+                    line = Line(cell_top.get_top() + UP*0.2, cell_bot.get_bottom() + DOWN*0.2, color=RED, stroke_width=6)
+                    lines.add(line)
+
+                self.play(Create(lines), run_time=1)
+                self.play(Wait(1))
+
+            elif step_type == "adjust":
+                min_uncovered = step_data[4]
+                self.play(Transform(info_text, Text(f"Lines < {len(matrix)}. Adjusting matrix by {min_uncovered}", font_size=32).to_edge(UP)))
+                self.play(Transform(table, new_table), run_time=1.5)
+                self.play(Wait(1))
+
+            elif step_type == "done":
+                assignment = step_data[4]
+                total_cost = step_data[5]
+
+                self.play(Transform(info_text, Text("Optimal Assignment Found!", font_size=32, color=GREEN).to_edge(UP)))
+                self.play(FadeOut(lines))
+
+                # Scale down to 0.45 to guarantee fit with the text block
+                original_table = Table(
+                    table_int_to_str(preTable),
+                    row_labels=[Text(label) for label in row_labels],
+                    col_labels=[Text(label) for label in col_labels],
+                    include_outer_lines=True,
+                    arrange_in_grid_config={"cell_alignment": RIGHT}
+                ).scale(0.45) 
+                
+                reduced_table = Table(
+                    table_int_to_str(matrix),
+                    row_labels=[Text(label) for label in row_labels],
+                    col_labels=[Text(label) for label in col_labels],
+                    include_outer_lines=True,
+                    arrange_in_grid_config={"cell_alignment": RIGHT}
+                ).scale(0.45)
+
+                # Add labels to the matrices, scaled down
+                orig_label = Text("Original Costs", font_size=24).next_to(original_table, UP)
+                red_label = Text("Reduced Matrix", font_size=24).next_to(reduced_table, UP)
+
+                # Group tables with their labels
+                orig_group = VGroup(orig_label, original_table)
+                red_group = VGroup(red_label, reduced_table)
+
+                # Arrange side-by-side with a smaller buffer, pin to left edge
+                both_matrices = VGroup(orig_group, red_group).arrange(RIGHT, buff=0.4)
+                both_matrices.to_edge(LEFT, buff=0.3)
+
+                # Animate the transition
+                self.play(
+                    Transform(table, reduced_table),
+                    FadeIn(original_table),
+                    FadeIn(orig_label),
+                    FadeIn(red_label),
+                    run_time=1.5
+                )
+
+                # Setup highlights and the brand new final cost group
+                highlights = VGroup()
+                final_cost_group = VGroup()
+                final_cost_group.add(Text("Assignments", font_size=28, color=BLUE))
+
+                for r, c in enumerate(assignment):
+                    # Grab the actual cell objects
+                    cell_orig = original_table.get_cell((r+2, c+2))
+                    cell_red = reduced_table.get_cell((r+2, c+2))
+                    
+                    # Create circles, match their size to the cell, scale to 80% to fit inside, and move to cell center
+                    circle_orig = Circle(color=GREEN, stroke_width=4).match_height(cell_orig).scale(0.8).move_to(cell_orig)
+                    circle_red = Circle(color=GREEN, stroke_width=4).match_height(cell_red).scale(0.8).move_to(cell_red)
+                    
+                    highlights.add(circle_orig, circle_red)
+                    
+                    worker = row_labels[r]
+                    task = col_labels[c]
+                    cost = preTable[r][c]
+                    
+                    final_cost_group.add(Text(f"{worker} -> {task}: {cost}", font_size=20))
+
+                final_cost_group.add(Text(f"Total Cost: {total_cost}", font_size=28, color=GREEN))
+                
+                # Format the text list and pin it to the right edge
+                final_cost_group.arrange(DOWN, aligned_edge=LEFT)
+                final_cost_group.to_edge(RIGHT, buff=0.3) 
+
+                # Reveal the highlights and the text at the same time
+                self.play(Create(highlights), Write(final_cost_group))
+                self.play(Wait(3))
 
 class GaleShapley(Scene):
     def construct(self):
