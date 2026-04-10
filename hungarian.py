@@ -69,6 +69,102 @@ def hungarian(cost_matrix: list[list[int]]) -> tuple[list[int], int]:
     total_cost = sum(cost_matrix[row][assignment[row]] for row in range(size))
     return assignment, total_cost
 
+
+def hungarian_step_generator(cost_matrix: list[list[int]]):
+    """Solve a square assignment problem using the Hungarian algorithm, yielding intermediate states."""
+    size = len(cost_matrix)
+    if size == 0:
+        yield {"assignment": [], "total_cost": 0, "row_potentials": [], "col_potentials": [], "done": True}
+        return
+
+    if any(len(row) != size for row in cost_matrix):
+        raise ValueError("hungarian: cost_matrix must be square")
+
+    row_potentials = [0] * (size + 1)
+    col_potentials = [0] * (size + 1)
+
+    p = [0] * (size + 1)
+    way = [0] * (size + 1)
+
+    for current_row in range(1, size + 1):
+        p[0] = current_row
+        column = 0
+        min_cost = [float("inf")] * (size + 1)
+        used = [False] * (size + 1)
+
+        while True:
+            used[column] = True
+            row = p[column]
+            best_delta = float("inf")
+            next_column = 0
+
+            for candidate in range(1, size + 1):
+                if used[candidate]:
+                    continue
+
+                cost = cost_matrix[row - 1][candidate - 1]
+                reduced_cost = cost - row_potentials[row] - col_potentials[candidate]
+
+                if reduced_cost < min_cost[candidate]:
+                    min_cost[candidate] = reduced_cost
+                    way[candidate] = column
+
+                if min_cost[candidate] < best_delta:
+                    best_delta = min_cost[candidate]
+                    next_column = candidate
+
+            for j in range(size + 1):
+                if used[j]:
+                    row_potentials[p[j]] += best_delta
+                    col_potentials[j] -= best_delta
+                else:
+                    min_cost[j] -= best_delta
+
+            column = next_column
+            
+            # Yield after potential updates
+            yield {
+                "p": list(p),
+                "row_potentials": list(row_potentials),
+                "col_potentials": list(col_potentials),
+                "current_row": current_row,
+                "done": False,
+            }
+
+            if p[column] == 0:
+                break
+
+        while True:
+            previous_column = way[column]
+            p[column] = p[previous_column]
+            column = previous_column
+            if column == 0:
+                break
+        
+        # Yield after augmenting path
+        yield {
+            "p": list(p),
+            "row_potentials": list(row_potentials),
+            "col_potentials": list(col_potentials),
+            "current_row": current_row,
+            "done": False,
+        }
+
+    assignment = [-1] * size
+    for col in range(1, size + 1):
+        assigned_row = p[col]
+        assignment[assigned_row - 1] = col - 1
+
+    total_cost = sum(cost_matrix[row][assignment[row]] for row in range(size))
+    yield {
+        "p": list(p),
+        "assignment": assignment,
+        "total_cost": total_cost,
+        "row_potentials": list(row_potentials),
+        "col_potentials": list(col_potentials),
+        "done": True,
+    }
+
 # Honestly the square matrix above is all you really need.
 # You can ignore everything below line 78, since that is graph based stuff.
 def min_cost_matrix_assignment(cost_matrix: list[list[int]]) -> tuple[list[int], int]:
