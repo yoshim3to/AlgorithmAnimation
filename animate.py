@@ -20,10 +20,10 @@ def int_to_ordinal(num):
 class Hungarian(Scene):
     def construct(self):
         preTable = [
-            [10, 19, 8, 15],
-            [10, 18, 7, 17],
-            [13, 16, 9, 14],
-            [12, 19, 8, 18]
+            [1, 2, 3, 4],
+            [2, 4, 8, 7],
+            [3, 6, 6, 5],
+            [4, 8, 9, 10]
         ]
         
         row_labels = ["P1", "P2", "P3", "P4"]
@@ -140,10 +140,30 @@ class Hungarian(Scene):
                 self.play(Create(lines), run_time=1.5)
                 self.play(Wait(1.5))
 
-            elif step_type == "adjust":
+            elif step_type == "adjust_min":
                 min_uncovered = step_data[4]
-                self.play(Transform(info_text, Text(f"Lines < {len(matrix)}. Adjusting matrix by {min_uncovered}", font_size=32).to_edge(UP)))
-                self.play(Transform(table, new_table), run_time=1.5)
+                min_i, min_j = step_data[5]
+                
+                # Fetch the exact cell and create a perfectly scaled circle
+                cell = table.get_cell((min_i+2, min_j+2))
+                current_highlight = Circle(color=YELLOW, stroke_width=4).match_height(cell).scale(0.8).move_to(cell)
+                
+                self.play(
+                    Transform(info_text, Text(f"Minimum Uncovered Value: {min_uncovered}", font_size=32).to_edge(UP)),
+                    Create(current_highlight),
+                    run_time=1.5
+                )
+                self.play(Wait(1))
+
+            elif step_type == "adjust_math":
+                min_uncovered = step_data[4]
+                
+                self.play(
+                    Transform(info_text, Text(f"Subtracting {min_uncovered} (Uncovered), Adding {min_uncovered} (Intersections)", font_size=30).to_edge(UP)),
+                    Transform(table, new_table),
+                    FadeOut(current_highlight),
+                    run_time=1.5
+                )
                 self.play(Wait(1.5))
 
             elif step_type == "done":
